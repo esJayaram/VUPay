@@ -40,6 +40,16 @@ export interface Transaction {
 export type KycStatus = 'verified' | 'pending' | 'unverified';
 export type KycTier = 1 | 2; // Tier 1: ₹10,000/mo, Tier 2: ₹2,00,000/mo
 
+export type TwoFactorMethod = 'authenticator' | 'sms';
+
+export interface TwoFactorConfig {
+  enabled: boolean;
+  method: TwoFactorMethod | null;
+  secret?: string;
+  backupCodes: string[];
+  verifiedPhone?: string;
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -53,11 +63,22 @@ export interface UserProfile {
   isFrozen: boolean;
   pin: string;
   twoFactorEnabled: boolean;
+  twoFactorConfig?: TwoFactorConfig;
   biometricEnabled: boolean;
   monthlySpent: number;
   monthlyLimit: number;
   panNumber?: string;
   aadhaarLastFour?: string;
+}
+
+export interface RealtimePaymentEvent {
+  id: string;
+  type: 'incoming_payment' | 'cashback' | 'refund';
+  amount: number;
+  senderName: string;
+  senderIdentifier: string;
+  note: string;
+  timestamp: string;
 }
 
 export interface BankAccount {

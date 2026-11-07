@@ -20,6 +20,13 @@ export const initialCurrentUser: UserProfile = {
   isFrozen: false,
   pin: '1234',
   twoFactorEnabled: true,
+  twoFactorConfig: {
+    enabled: true,
+    method: 'authenticator',
+    secret: 'VUPY-2026-X84J-992K',
+    backupCodes: ['8492-3104', '7210-9481', '6301-4829', '9104-5528'],
+    verifiedPhone: '9876543210',
+  },
   biometricEnabled: true,
   monthlySpent: 34500.0,
   monthlyLimit: 200000.0,

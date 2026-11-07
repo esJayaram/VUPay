@@ -12,6 +12,10 @@ import {
   KeyRound,
   Fingerprint,
   Plus,
+  Smartphone,
+  Copy,
+  Check,
+  ShieldAlert,
 } from 'lucide-react';
 
 export const ProfileSettings: React.FC = () => {
@@ -21,6 +25,8 @@ export const ProfileSettings: React.FC = () => {
     updateKYC,
     updatePin,
     showToast,
+    setActiveModal,
+    disableTwoFactor,
   } = useWallet();
 
   const [activeTab, setActiveTab] = useState<'profile' | 'kyc' | 'banks' | 'security'>('profile');
@@ -38,6 +44,8 @@ export const ProfileSettings: React.FC = () => {
   // Security toggles
   const [twoFactor, setTwoFactor] = useState(currentUser?.twoFactorEnabled ?? true);
   const [biometric, setBiometric] = useState(currentUser?.biometricEnabled ?? true);
+  const [showBackupCodes, setShowBackupCodes] = useState(false);
+  const [copiedCodes, setCopiedCodes] = useState(false);
 
   // Bank accounts add form
   const [showAddBank, setShowAddBank] = useState(false);
@@ -410,32 +418,126 @@ export const ProfileSettings: React.FC = () => {
 
           {/* 2FA & Biometric */}
           <div className="md:col-span-6 bg-white rounded-2xl border border-slate-200/80 shadow-sm p-6 space-y-5">
-            <h2 className="text-base font-bold text-slate-900 font-sans">Advanced Authentication</h2>
+            <h2 className="text-base font-bold text-slate-900 font-sans">Two-Factor Authentication (2FA)</h2>
 
-            <div className="space-y-4 text-xs">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
-                <div className="space-y-0.5">
-                  <p className="font-bold text-slate-900">Two-Factor Authentication (2FA)</p>
-                  <p className="text-slate-500">Require SMS OTP on new browser sessions</p>
+            {/* 2FA Status Card */}
+            <div className={`p-4 rounded-xl border space-y-3 text-xs ${
+              currentUser.twoFactorEnabled
+                ? 'bg-emerald-50/60 border-emerald-200'
+                : 'bg-amber-50/60 border-amber-200'
+            }`}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {currentUser.twoFactorEnabled ? (
+                    <ShieldCheck className="w-5 h-5 text-emerald-600" />
+                  ) : (
+                    <ShieldAlert className="w-5 h-5 text-amber-600" />
+                  )}
+                  <div>
+                    <p className="font-bold text-slate-900">
+                      {currentUser.twoFactorEnabled ? '2FA Protection Active' : '2FA Protection Disabled'}
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      {currentUser.twoFactorEnabled
+                        ? `Secured via ${currentUser.twoFactorConfig?.method === 'sms' ? 'SMS Codes' : 'Authenticator App (TOTP)'}`
+                        : 'Accounts without 2FA are vulnerable to credential stuffing'}
+                    </p>
+                  </div>
                 </div>
-                <button
-                  onClick={() => {
-                    setTwoFactor(!twoFactor);
-                    showToast(`2FA has been ${!twoFactor ? 'enabled' : 'disabled'}.`, 'info');
-                  }}
-                  className={`w-11 h-6 rounded-full transition-colors relative cursor-pointer ${
-                    twoFactor ? 'bg-blue-600' : 'bg-slate-300'
-                  }`}
-                  aria-label="Toggle 2FA"
-                >
-                  <span
-                    className={`block w-4 h-4 rounded-full bg-white shadow-xs transition-transform transform ${
-                      twoFactor ? 'translate-x-6' : 'translate-x-1'
-                    } top-1`}
-                  />
-                </button>
+
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                  currentUser.twoFactorEnabled
+                    ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-amber-100 text-amber-700'
+                }`}>
+                  {currentUser.twoFactorEnabled ? 'ENFORCED' : 'OFF'}
+                </span>
               </div>
 
+              {currentUser.twoFactorEnabled && (
+                <div className="pt-2 border-t border-emerald-200/60 space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-600">Active Method:</span>
+                    <span className="font-semibold text-slate-900 capitalize">
+                      {currentUser.twoFactorConfig?.method === 'sms' ? 'SMS (+91 ' + currentUser.mobile + ')' : 'Google Authenticator'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-slate-600">Recovery Codes:</span>
+                    <button
+                      type="button"
+                      onClick={() => setShowBackupCodes(!showBackupCodes)}
+                      className="font-semibold text-blue-600 hover:text-blue-700 cursor-pointer"
+                    >
+                      {showBackupCodes ? 'Hide Codes' : 'View 4 Backup Codes'}
+                    </button>
+                  </div>
+
+                  {showBackupCodes && (
+                    <div className="p-2.5 rounded-lg bg-white border border-emerald-200 space-y-2">
+                      <p className="text-[10px] text-slate-500">
+                        Use any code if you lose phone access. Each code works once:
+                      </p>
+                      <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] font-bold text-slate-800 text-center">
+                        {(currentUser.twoFactorConfig?.backupCodes || ['8492-3104', '7210-9481', '6301-4829', '9104-5528']).map((code, idx) => (
+                          <div key={idx} className="p-1 rounded bg-slate-50 border border-slate-200">
+                            {code}
+                          </div>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(
+                            (currentUser.twoFactorConfig?.backupCodes || ['8492-3104', '7210-9481', '6301-4829', '9104-5528']).join('\n')
+                          );
+                          setCopiedCodes(true);
+                          showToast('Backup codes copied to clipboard.', 'success');
+                          setTimeout(() => setCopiedCodes(false), 2000);
+                        }}
+                        className="w-full py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100 rounded border border-slate-200 flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        {copiedCodes ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                        <span>{copiedCodes ? 'Copied' : 'Copy All Codes'}</span>
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setActiveModal('two_factor_setup')}
+                      className="flex-1 py-1.5 px-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-800 text-xs font-semibold rounded-lg shadow-2xs cursor-pointer transition-colors"
+                    >
+                      Change Method / Key
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => disableTwoFactor()}
+                      className="py-1.5 px-3 hover:bg-rose-50 text-rose-600 hover:text-rose-700 text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                    >
+                      Disable
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {!currentUser.twoFactorEnabled && (
+                <div className="pt-2 border-t border-amber-200/60">
+                  <button
+                    type="button"
+                    onClick={() => setActiveModal('two_factor_setup')}
+                    className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-lg text-xs transition-colors cursor-pointer shadow-xs"
+                  >
+                    Setup Two-Factor Authentication Now
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Biometric Toggle */}
+            <div className="space-y-4 text-xs pt-2 border-t border-slate-100">
               <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
                 <div className="space-y-0.5">
                   <p className="font-bold text-slate-900">Biometric / Face ID Unlock</p>

@@ -21,6 +21,10 @@ import {
   AlertCircle,
   CreditCard,
   Zap,
+  Sparkles,
+  Radio,
+  RadioTower,
+  Wifi,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -42,6 +46,10 @@ export const UserDashboard: React.FC = () => {
     transactions,
     beneficiaries,
     setSelectedTransaction,
+    startTour,
+    realtimeConnected,
+    lastRealtimeEvent,
+    simulateIncomingPayment,
   } = useWallet();
 
   const [hideBalance, setHideBalance] = useState(false);
@@ -137,8 +145,36 @@ export const UserDashboard: React.FC = () => {
           </p>
         </div>
 
-        {/* Quick notification trigger */}
-        <div className="flex items-center gap-3">
+        {/* Real-time live status + Tour + notification + Scan QR */}
+        <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+          {/* Live Real-Time Feed Indicator & Push Simulator */}
+          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-xs shadow-2xs">
+            <span className="relative flex h-2 w-2">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${realtimeConnected ? 'bg-emerald-400' : 'bg-amber-400'}`} />
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${realtimeConnected ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+            </span>
+            <span className="text-[11px] font-semibold text-slate-700 hidden sm:inline">
+              Live Feed
+            </span>
+            <button
+              onClick={() => simulateIncomingPayment('Pooja Rao', 2500)}
+              className="text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded transition-colors cursor-pointer"
+              title="Simulate incoming WebSocket payment push"
+            >
+              + Push Test
+            </button>
+          </div>
+
+          {/* Guided Onboarding Tour Button */}
+          <button
+            onClick={startTour}
+            className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-xs font-semibold text-slate-700 flex items-center gap-1.5 shadow-2xs cursor-pointer transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
+            <span>Guided Tour</span>
+          </button>
+
+          {/* Quick notification trigger */}
           <div className="relative">
             <button
               onClick={() => setNotificationsOpen(!notificationsOpen)}
@@ -169,6 +205,7 @@ export const UserDashboard: React.FC = () => {
           </div>
 
           <button
+            data-tour="qr-action"
             onClick={() => setActiveModal('qr_scan')}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer"
           >
@@ -182,7 +219,10 @@ export const UserDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
         
         {/* Main Balance Card (lg:col-span-6) */}
-        <div className="lg:col-span-6 bg-[#101B35] text-white rounded-2xl p-7 border border-slate-800 shadow-lg relative overflow-hidden flex flex-col justify-between">
+        <div
+          data-tour="balance"
+          className="lg:col-span-6 bg-[#101B35] text-white rounded-2xl p-7 border border-slate-800 shadow-lg relative overflow-hidden flex flex-col justify-between"
+        >
           <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-blue-600/20 blur-2xl pointer-events-none" />
           
           <div className="space-y-4 relative">
@@ -227,6 +267,7 @@ export const UserDashboard: React.FC = () => {
           {/* Quick Action Buttons inside Card */}
           <div className="grid grid-cols-4 gap-2 pt-6 mt-6 border-t border-slate-800/80">
             <button
+              data-tour="send-action"
               onClick={() => setActiveModal('send')}
               className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/30 text-white transition-colors cursor-pointer"
             >
@@ -235,6 +276,7 @@ export const UserDashboard: React.FC = () => {
             </button>
 
             <button
+              data-tour="add-action"
               onClick={() => setActiveModal('add_money')}
               className="flex flex-col items-center gap-1.5 p-2 rounded-xl bg-slate-800 hover:bg-slate-700/80 border border-slate-700 text-white transition-colors cursor-pointer"
             >
@@ -432,7 +474,7 @@ export const UserDashboard: React.FC = () => {
       </div>
 
       {/* Recent Transactions List & Audit Ledger */}
-      <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-5">
+      <div data-tour="recent-ledger" className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900 font-sans">Recent Wallet Transactions</h2>

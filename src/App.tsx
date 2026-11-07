@@ -22,6 +22,8 @@ import { AddMoneyModal } from './components/AddMoneyModal';
 import { WithdrawMoneyModal } from './components/WithdrawMoneyModal';
 import { ReceiptModal } from './components/ReceiptModal';
 import { AuthModal } from './components/AuthModal';
+import { TwoFactorSetupModal } from './components/TwoFactorSetupModal';
+import { OnboardingTour } from './components/OnboardingTour';
 
 import { CheckCircle2, AlertCircle, Info } from 'lucide-react';
 
@@ -44,7 +46,7 @@ const AppContent: React.FC = () => {
         {currentView === 'settings' && <ProfileSettings />}
       </main>
 
-      {/* Global Modals */}
+      {/* Global Modals & Interactive Tour */}
       <SendMoneyModal />
       <ReceiveMoneyModal />
       <QRScannerModal />
@@ -52,6 +54,8 @@ const AppContent: React.FC = () => {
       <WithdrawMoneyModal />
       <ReceiptModal />
       <AuthModal />
+      <TwoFactorSetupModal />
+      <OnboardingTour />
 
       {/* Global Toast Notification */}
       {toast && (

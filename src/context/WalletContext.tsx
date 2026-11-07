@@ -9,6 +9,8 @@ import {
   AdminAnalytics,
   TransactionCategory,
   PaymentRail,
+  TwoFactorMethod,
+  TwoFactorConfig,
 } from '../types/wallet';
 import {
   initialCurrentUser,
@@ -24,6 +26,8 @@ import {
   validateTransaction,
   generateReferenceId,
   assessFraudRisk,
+  applyRealtimeEventToLedger,
+  generateMockBackupCodes,
 } from '../utils/walletEngine';
 
 export type AppView = 'landing' | 'dashboard' | 'wallet' | 'bills' | 'developer' | 'admin' | 'settings';
@@ -36,6 +40,7 @@ export type ModalType =
   | 'receipt'
   | 'auth'
   | 'kyc_upgrade'
+  | 'two_factor_setup'
   | null;
 
 interface WalletContextType {
@@ -53,6 +58,24 @@ interface WalletContextType {
   setActiveModal: (modal: ModalType) => void;
   selectedTransaction: Transaction | null;
   setSelectedTransaction: (tx: Transaction | null) => void;
+
+  // 2FA Actions
+  enableTwoFactor: (method: TwoFactorMethod, secret?: string) => void;
+  disableTwoFactor: () => void;
+
+  // Onboarding Tour Actions
+  isTourActive: boolean;
+  currentTourStep: number;
+  startTour: () => void;
+  nextTourStep: () => void;
+  prevTourStep: () => void;
+  skipTour: () => void;
+  finishTour: () => void;
+
+  // Real-Time Dashboard Actions
+  realtimeConnected: boolean;
+  simulateIncomingPayment: (customSender?: string, customAmount?: number) => void;
+  lastRealtimeEvent: { title: string; amount: number; time: string } | null;
   
   // Actions
   sendMoney: (params: {
@@ -112,6 +135,25 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [activeModal, setActiveModal] = useState<ModalType>(null);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Onboarding Tour State
+  const [isTourActive, setIsTourActive] = useState(false);
+  const [currentTourStep, setCurrentTourStep] = useState(0);
+
+  // Real-Time Dashboard State
+  const [realtimeConnected, setRealtimeConnected] = useState(true);
+  const [lastRealtimeEvent, setLastRealtimeEvent] = useState<{ title: string; amount: number; time: string } | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('tour') === '1' || urlParams.get('tour') === 'true') {
+        setCurrentView('dashboard');
+        setIsTourActive(true);
+        setCurrentTourStep(0);
+      }
+    }
+  }, []);
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
@@ -470,6 +512,90 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setActiveModal(null);
   };
 
+  const enableTwoFactor = (method: TwoFactorMethod, secret = 'VUPY-2026-X84J-992K') => {
+    if (!currentUser) return;
+    const backupCodes = generateMockBackupCodes();
+    const config: TwoFactorConfig = {
+      enabled: true,
+      method,
+      secret,
+      backupCodes,
+      verifiedPhone: currentUser.mobile,
+    };
+    setCurrentUser((prev) => (prev ? { ...prev, twoFactorEnabled: true, twoFactorConfig: config } : null));
+    showToast(`Two-Factor Authentication enabled via ${method === 'authenticator' ? 'Authenticator App' : 'SMS OTP'}!`, 'success');
+  };
+
+  const disableTwoFactor = () => {
+    if (!currentUser) return;
+    setCurrentUser((prev) =>
+      prev
+        ? {
+            ...prev,
+            twoFactorEnabled: false,
+            twoFactorConfig: {
+              enabled: false,
+              method: null,
+              backupCodes: [],
+            },
+          }
+        : null
+    );
+    showToast('Two-Factor Authentication disabled.', 'info');
+  };
+
+  const startTour = () => {
+    setCurrentView('dashboard');
+    setIsTourActive(true);
+    setCurrentTourStep(0);
+  };
+
+  const nextTourStep = () => {
+    setCurrentTourStep((s) => s + 1);
+  };
+
+  const prevTourStep = () => {
+    setCurrentTourStep((s) => Math.max(0, s - 1));
+  };
+
+  const skipTour = () => {
+    setIsTourActive(false);
+    showToast('Onboarding tour dismissed. Access anytime from the Dashboard.', 'info');
+  };
+
+  const finishTour = () => {
+    setIsTourActive(false);
+    triggerConfetti();
+    showToast('🎉 Onboarding tour completed! You are ready to make fast moves.', 'success');
+  };
+
+  const simulateIncomingPayment = (customSender = 'Sneha Verma', customAmount = 750) => {
+    if (!currentUser) return;
+    const event = {
+      id: `rtx_${Date.now()}_${Math.random().toString(36).substring(7)}`,
+      amount: customAmount,
+      senderName: customSender,
+      senderIdentifier: `${customSender.toLowerCase().replace(/\s+/g, '.')}@vupay`,
+      note: 'Instant Real-time Transfer',
+      timestamp: new Date().toISOString(),
+      recipientName: currentUser.name,
+      recipientIdentifier: currentUser.vupayId,
+    };
+
+    const res = applyRealtimeEventToLedger(currentUser.balance, transactions, event);
+    if (!res.isDuplicate && res.newTransaction) {
+      setCurrentUser((prev) => (prev ? { ...prev, balance: res.newBalance } : null));
+      setTransactions(res.updatedTransactions);
+      setLastRealtimeEvent({
+        title: `Received ₹${customAmount.toLocaleString('en-IN')}`,
+        amount: customAmount,
+        time: 'Just now',
+      });
+      showToast(`⚡ Real-Time Push: Received ₹${customAmount.toLocaleString('en-IN')} from ${customSender}`, 'success');
+      triggerConfetti();
+    }
+  };
+
   const logout = () => {
     setCurrentUser(null);
     setCurrentView('landing');
@@ -494,6 +620,18 @@ export const WalletProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setActiveModal,
         selectedTransaction,
         setSelectedTransaction,
+        enableTwoFactor,
+        disableTwoFactor,
+        isTourActive,
+        currentTourStep,
+        startTour,
+        nextTourStep,
+        prevTourStep,
+        skipTour,
+        finishTour,
+        realtimeConnected,
+        simulateIncomingPayment,
+        lastRealtimeEvent,
         sendMoney,
         addMoney,
         withdrawMoney,

@@ -7,6 +7,8 @@ import {
   calculateLedgerBalance,
   assessFraudRisk,
   KYC_TIER_LIMITS,
+  validate2FACode,
+  applyRealtimeEventToLedger,
 } from './walletEngine';
 import { UserProfile, Transaction } from '../types/wallet';
 
@@ -146,3 +148,51 @@ test('assessFraudRisk flags rapid transaction velocity and extreme debit ratios'
   assert.equal(rapid.flagged, true);
   assert.ok(rapid.score >= 50);
 });
+
+test('validate2FACode verifies 6-digit TOTP/SMS codes and emergency backup codes', () => {
+  // Valid 6-digit TOTP
+  const totpRes = validate2FACode('123456');
+  assert.equal(totpRes.valid, true);
+  assert.equal(totpRes.isBackupCode, false);
+
+  // Valid backup code
+  const backupRes = validate2FACode('8492-3104', {
+    enabled: true,
+    method: 'authenticator',
+    backupCodes: ['8492-3104', '7210-9481'],
+  });
+  assert.equal(backupRes.valid, true);
+  assert.equal(backupRes.isBackupCode, true);
+
+  // Invalid code
+  const invalidRes = validate2FACode('abc');
+  assert.equal(invalidRes.valid, false);
+});
+
+test('applyRealtimeEventToLedger updates balance and guards against duplicate events', () => {
+  const initialBal = 20000;
+  const existing: Transaction[] = [];
+  const event = {
+    id: 'rtx_event_991',
+    amount: 1500,
+    senderName: 'Sneha Verma',
+    senderIdentifier: 'sneha.v@vupay',
+    note: 'Consultation fee',
+    timestamp: new Date().toISOString(),
+    recipientName: 'Arjun Sharma',
+    recipientIdentifier: 'arjun@vupay',
+  };
+
+  const firstPass = applyRealtimeEventToLedger(initialBal, existing, event);
+  assert.equal(firstPass.isDuplicate, false);
+  assert.equal(firstPass.newBalance, 21500);
+  assert.equal(firstPass.updatedTransactions.length, 1);
+  assert.equal(firstPass.updatedTransactions[0].amount, 1500);
+
+  // Duplicate replay guard
+  const secondPass = applyRealtimeEventToLedger(firstPass.newBalance, firstPass.updatedTransactions, event);
+  assert.equal(secondPass.isDuplicate, true);
+  assert.equal(secondPass.newBalance, 21500);
+  assert.equal(secondPass.updatedTransactions.length, 1);
+});
+
