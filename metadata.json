@@ -1,0 +1,6 @@
+{
+  "name": "VUPAY – Smart Digital Wallet",
+  "description": "VUPAY (vupay.in) is a modern, premium digital wallet and open-source fintech payment platform for instant peer-to-peer transfers, bill payments, and smart wallet management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
